@@ -2,7 +2,7 @@ import mysql.connector
 import threading
 import time
 import random
-from pymodbus.server import StartTcpServer
+from pymodbus.server.sync import StartTcpServer
 from pymodbus.device import ModbusDeviceIdentification
 from pymodbus.datastore import (
     ModbusServerContext,
@@ -20,9 +20,16 @@ from pymodbus.datastore import (
 # If a change is detected, it updates the database to its new value.
 
 
+# This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
+# 99 voltage, 100 current, 101 line_cb
+LOCATION = 101
+
+FUNC_NUM = 3  # Function number for holding registers
+
+
 def establish_connection():
     conn = mysql.connector.connect(
-        host="localhost",
+        host="192.168.192.1",
         user="root",
         password="password",
         database="pandapower_db"
@@ -65,20 +72,18 @@ def create_identity():
 
 # To monitor any changes in line_cb and make the update back to the DB
 def monitor_modbus(context):
-    function_number = 3  # Function number for holding registers
-    location = 101 # This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
     while True:
         try:
-            prev_value = context[0].getValues(function_number, location, count=1)[0]
+            prev_value = context[0].getValues(FUNC_NUM, LOCATION, count=1)[0]
             break  # Exit loop once successful
         except IndexError:
-            print("Waiting for holding register 102 to be ready...")
+            print("Waiting for holding register 101 to be ready...")
             time.sleep(1)
 
     while True:
         print(f"Monitoring for any changes to line_cb : {prev_value}")
         time.sleep(1)
-        current_value = context[0].getValues(function_number, location, count=1)[0]
+        current_value = context[0].getValues(FUNC_NUM, LOCATION, count=1)[0]
         # Compare the value of the line_cb, if it changed, write the changes to the DB
         if current_value != prev_value:
             print("Line_cb value changed!")
@@ -100,18 +105,17 @@ def write_breaker_to_db(value):
 # Hardcoded update to the line_cb to simulate a possible change in value in the IED every 3 seconds
 def hardcode_update(context):
     while True:
-        time.sleep(3) 
+        time.sleep(3)
         new_value = random.randint(0, 1)
         print(f"[Simulated PLC instr] Forcing breaker value to {new_value}")
-        context[0].setValues(3, 101, [new_value])  
+        context[0].setValues(FUNC_NUM, LOCATION, [new_value])
 
 
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
-
-    store = ModbusSlaveContext(
-        hr=ModbusSequentialDataBlock(100, register_values)
-        )
+    block = ModbusSequentialDataBlock(100, register_values)
+    #block.setValues(100, register_values)  # Apply data
+    store = ModbusSlaveContext(hr=block)
 
     # The single is set to True for now because we only have one IED
     context = ModbusServerContext(slaves=store, single=True)
@@ -121,13 +125,14 @@ def start_server_and_monitor(register_values):
 
     # Do multi threading to do other operations concurrently with the server
 
-    # # To observe any changes and updates can be made to the DB as the server is running
+    # To observe any changes and updates can be made to the DB as the server is running
     threading.Thread(target=monitor_modbus, args=(context,), daemon=True).start()
 
-    # # Hardcoded changes to line_cb of the server context as the server is running, 
-    # # to simulate changes like PLC instructing IED to close the circuit breaker.
+    # Hardcoded changes to line_cb of the server context as the server is running, 
+    # to simulate changes like PLC instructing IED to close the circuit breaker.
     threading.Thread(target=hardcode_update, args=(context,), daemon=True).start()
-
+    #val = context[0].getValues(3, 99, count=1)[0]
+    #print(f"this is the values of context at 99:{val}")
     # Start server
     StartTcpServer(
         context=context,
