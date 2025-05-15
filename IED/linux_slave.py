@@ -77,7 +77,7 @@ def monitor_modbus(context):
             prev_value = context[0].getValues(FUNC_NUM, LOCATION, count=1)[0]
             break  # Exit loop once successful
         except IndexError:
-            print("Waiting for holding register 101 to be ready...")
+            print("Waiting for holding register 102 to be ready...")
             time.sleep(1)
 
     while True:

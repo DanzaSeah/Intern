@@ -108,10 +108,9 @@ def hardcode_update(context):
 
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
+    block = ModbusSequentialDataBlock(100, register_values)
 
-    store = ModbusSlaveContext(
-        hr=ModbusSequentialDataBlock(100, register_values)
-        )
+    store = ModbusSlaveContext(hr=block)
 
     # The single is set to True for now because we only have one IED
     context = ModbusServerContext(slaves=store, single=True)
@@ -119,6 +118,7 @@ def start_server_and_monitor(register_values):
     # To identify the IED
     identity = create_identity()
 
+   
     # Do multi threading to do other operations concurrently with the server
 
     # # To observe any changes and updates can be made to the DB as the server is running
