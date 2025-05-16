@@ -11,12 +11,12 @@ def fetch_register_values(client):
     return rr.registers
 
 def less_than(x, y):
-    return x > y
+    return x < y
 
 def do_pla_logic(client, register_values, timer_counter, ls_timer_started, last_check_time):
     ### LOAD SHEDDING ###
     [bus_voltage_0, current_0, line_cb_0] = register_values
-    if less_than(bus_voltage_0, TRIP_VALUE):
+    if less_than(bus_voltage_0/1000, TRIP_VALUE):
         if not ls_timer_started:
             ls_timer_started = True
             last_check_time = time.time()
@@ -58,8 +58,12 @@ def main():
     last_check_time = time.time()
     while True:
         register_values = fetch_register_values(client)
-        timer_counter, ls_timer_started, last_check_time = do_pla_logic(client,
-            register_values, timer_counter, ls_timer_started, last_check_time
+        timer_counter, ls_timer_started, last_check_time = do_pla_logic(
+            client,
+            register_values, 
+            timer_counter, 
+            ls_timer_started, 
+            last_check_time
         )
         time.sleep(0.5)
     client.close()

@@ -82,7 +82,7 @@ def monitor_modbus(context):
             time.sleep(1)
 
     while True:
-        print(f"Monitoring for any changes to line_cb : {prev_value}")
+        print(f"Monitoring for any changes to line_cb_0 : {prev_value}")
         time.sleep(1)
         current_value = context[0].getValues(FUNC_NUM, LOCATION, count=1)[0]
         # Compare the value of the line_cb, if it changed, write the changes to the DB
