@@ -111,6 +111,27 @@ def hardcode_update(context):
         context[0].setValues(FUNC_NUM, LOCATION, [new_value])
 
 
+def poll_database_and_update(context):
+    prev_values = [None, None, None]  # voltage, current, breaker
+
+    while True:
+        time.sleep(1)  # check every 1 second
+        try:
+            conn = establish_connection()
+            new_values = fetch_ied_data(conn)
+            conn.close()
+
+            for i in range(3):
+                if new_values[i] != prev_values[i]:
+                    modbus_addr = MODBUS_DATA_ADDRESS + i  # i.e., 1024, 1025 1026
+                    context[0].setValues(FUNC_NUM, modbus_addr, [new_values[i]])
+                    print(f"[DB Sync] Updated Modbus reg {modbus_addr} with new value: {new_values[i]}")
+                    prev_values[i] = new_values[i]
+
+        except Exception as e:
+            print(f"[Error] While polling DB: {e}")
+
+
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
     block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS + 1, register_values)
@@ -126,6 +147,7 @@ def start_server_and_monitor(register_values):
     # Do multi threading to do other operations concurrently with the server
 
     # To observe any changes and updates can be made to the DB as the server is running
+    threading.Thread(target=poll_database_and_update, args=(context,), daemon=True).start()
     threading.Thread(target=monitor_modbus, args=(context,), daemon=True).start()
 
     # Hardcoded changes to line_cb of the server context as the server is running, 
