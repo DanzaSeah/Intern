@@ -19,18 +19,17 @@ from pymodbus.datastore import (
 # in the modbus context every 3 seconds randomly
 # If a change is detected, it updates the database to its new value.
 
-
+MODBUS_DATA_ADDRESS = 1024
 # This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
-# 99 voltage, 100 current, 101 line_cb
-LOCATION = 101
-
+# 1024 voltage, 1025 current, 1026 line_cb
+LOCATION = MODBUS_DATA_ADDRESS + 2
 FUNC_NUM = 3  # Function number for holding registers
 
 
 def establish_connection():
     conn = mysql.connector.connect(
         # localhost if on same ip as database
-        host="localhost",
+        host="192.168.192.1",
         user="root",
         password="password",
         database="pandapower_db"
@@ -114,7 +113,7 @@ def hardcode_update(context):
 
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
-    block = ModbusSequentialDataBlock(100, register_values)
+    block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS + 1, register_values)
     #block.setValues(100, register_values)  # Apply data
     store = ModbusSlaveContext(hr=block)
 
@@ -132,8 +131,8 @@ def start_server_and_monitor(register_values):
     # Hardcoded changes to line_cb of the server context as the server is running, 
     # to simulate changes like PLC instructing IED to close the circuit breaker.
     #threading.Thread(target=hardcode_update, args=(context,), daemon=True).start()
-    # val = context[0].getValues(3, 99, count=1)[0]
-    # print(f"this is the values of context at 99:{val}")
+    #val = context[0].getValues(3, 99, count=1)[0]
+    #print(f"this is the values of context at 99:{val}")
     # Start server
     StartTcpServer(
         context=context,
