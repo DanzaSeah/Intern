@@ -125,7 +125,7 @@ def poll_database_and_update(context):
             for i in range(3):
                 if new_values[i] != prev_values[i]:
                     context[0].setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [new_values[i]])
-                    print(f"[DB Sync] Updated Modbus reg {MODBUS_DATA_ADDRESS} with new value: {new_values[i]}")
+                    print(f"[DB Sync] Updated Modbus reg {MODBUS_DATA_ADDRESS + i} with new value: {new_values[i]}")
                     prev_values[i] = new_values[i]
 
         except Exception as e:
@@ -137,7 +137,7 @@ def start_server_and_monitor(register_values):
     block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS, [0]*1100)
     store = ModbusSlaveContext(hr=block)
     for i in range(3):
-        store.setValues(FUNC_NUM, MODBUS_DATA_ADDRESS, [register_values[i]])
+        store.setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [register_values[i]])
 
     # The single is set to True for now because we only have one IED
     context = ModbusServerContext(slaves=store, single=True)
