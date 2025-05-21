@@ -19,10 +19,11 @@ from pymodbus.datastore import (
 # in the modbus context every 3 seconds randomly
 # If a change is detected, it updates the database to its new value.
 
-MODBUS_DATA_ADDRESS = 1024
+
 # This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
 # 1024 voltage, 1025 current, 1026 line_cb
-LOCATION = MODBUS_DATA_ADDRESS + 2
+MODBUS_DATA_ADDRESS = 1024
+LOCATION_LINE_CB = MODBUS_DATA_ADDRESS + 2
 FUNC_NUM = 3  # Function number for holding registers
 
 
@@ -74,7 +75,7 @@ def create_identity():
 def monitor_modbus(context):
     while True:
         try:
-            prev_value = context[0].getValues(FUNC_NUM, LOCATION, count=1)[0]
+            prev_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
             break  # Exit loop once successful
         except IndexError:
             print("Waiting for holding register 102 to be ready...")
@@ -83,7 +84,7 @@ def monitor_modbus(context):
     while True:
         print(f"Monitoring for any changes to line_cb_0 : {prev_value}")
         time.sleep(1)
-        current_value = context[0].getValues(FUNC_NUM, LOCATION, count=1)[0]
+        current_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
         # Compare the value of the line_cb, if it changed, write the changes to the DB
         if current_value != prev_value:
             print("Line_cb value changed!")
@@ -108,11 +109,11 @@ def hardcode_update(context):
         time.sleep(3)
         new_value = random.randint(0, 1)
         print(f"[Simulated PLC instr] Forcing breaker value to {new_value}")
-        context[0].setValues(FUNC_NUM, LOCATION, [new_value])
+        context[0].setValues(FUNC_NUM, LOCATION_LINE_CB, [new_value])
 
-
+# Checks the database every second if there are any values changed, if there is, update the server.
 def poll_database_and_update(context):
-    prev_values = [None, None, None]  # voltage, current, breaker
+    prev_values = [None, None, None]  # bus_voltage, current, line_cb
 
     while True:
         time.sleep(1)  # check every 1 second
@@ -123,9 +124,8 @@ def poll_database_and_update(context):
 
             for i in range(3):
                 if new_values[i] != prev_values[i]:
-                    modbus_addr = MODBUS_DATA_ADDRESS + i  # i.e., 1024, 1025 1026
-                    context[0].setValues(FUNC_NUM, modbus_addr, [new_values[i]])
-                    print(f"[DB Sync] Updated Modbus reg {modbus_addr} with new value: {new_values[i]}")
+                    context[0].setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [new_values[i]])
+                    print(f"[DB Sync] Updated Modbus reg {MODBUS_DATA_ADDRESS} with new value: {new_values[i]}")
                     prev_values[i] = new_values[i]
 
         except Exception as e:
@@ -134,9 +134,10 @@ def poll_database_and_update(context):
 
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
-    block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS + 1, register_values)
-    #block.setValues(100, register_values)  # Apply data
+    block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS, [0]*1100)
     store = ModbusSlaveContext(hr=block)
+    for i in range(3):
+        store.setValues(FUNC_NUM, MODBUS_DATA_ADDRESS, [register_values[i]])
 
     # The single is set to True for now because we only have one IED
     context = ModbusServerContext(slaves=store, single=True)
@@ -153,8 +154,8 @@ def start_server_and_monitor(register_values):
     # Hardcoded changes to line_cb of the server context as the server is running, 
     # to simulate changes like PLC instructing IED to close the circuit breaker.
     #threading.Thread(target=hardcode_update, args=(context,), daemon=True).start()
-    #val = context[0].getValues(3, 99, count=1)[0]
-    #print(f"this is the values of context at 99:{val}")
+    val = context[0].getValues(3, MODBUS_DATA_ADDRESS, count=3)
+    print(f"this is the values of context at {MODBUS_DATA_ADDRESS}:{val}")
     # Start server
     StartTcpServer(
         context=context,
@@ -171,3 +172,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
