@@ -9,7 +9,17 @@ def fetch_table_names(conn):
     cursor.close()
     return tables
 
-def fetch_table_data(conn, table_name):
+def establish_connection():
+    conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="password",
+            database="pandapower_db"
+        )
+    return conn
+
+def fetch_table_data(table_name):
+    conn = establish_connection()
     cursor = conn.cursor()
     cursor.execute(f"SELECT * FROM {table_name};")
     columns = [col[0] for col in cursor.description]
@@ -19,12 +29,7 @@ def fetch_table_data(conn, table_name):
 
 def launch_ui():
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="password",
-            database="pandapower_db"
-        )
+        conn = establish_connection()
     except Exception as e:
         messagebox.showerror("Database Error", str(e))
         return
@@ -46,7 +51,7 @@ def launch_ui():
         for widget in frame.winfo_children():
             widget.destroy()
 
-        columns, rows = fetch_table_data(conn, selected_table)
+        columns, rows = fetch_table_data(selected_table)
 
         tree = ttk.Treeview(frame, columns=columns, show='headings')
         for col in columns:
