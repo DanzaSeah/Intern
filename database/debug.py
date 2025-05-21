@@ -7,6 +7,6 @@ conn = mysql.connector.connect(
         database="pandapower_db"
     )
 cursor = conn.cursor()
-cursor.execute("UPDATE line_cb SET value = %s WHERE name = 'line_cb_0'", (1,))
+cursor.execute("UPDATE line_cb SET value = %s WHERE name = 'line_cb_0'", (0,))
 conn.commit()
 conn.close()
