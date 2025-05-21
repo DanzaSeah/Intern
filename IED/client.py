@@ -42,7 +42,7 @@ def do_pla_logic(client, register_values, timer_counter, ls_timer_started, last_
 
     return timer_counter, ls_timer_started, last_check_time
 
-
+        
 def establish_connection():
     address = '127.0.0.1'
     port_num = 5020
@@ -60,9 +60,9 @@ def main():
         register_values = fetch_register_values(client)
         timer_counter, ls_timer_started, last_check_time = do_pla_logic(
             client,
-            register_values,
-            timer_counter,
-            ls_timer_started,
+            register_values, 
+            timer_counter, 
+            ls_timer_started, 
             last_check_time
         )
         time.sleep(0.5)
