@@ -20,9 +20,10 @@ from pymodbus.datastore import (
 # If a change is detected, it updates the database to its new value.
 
 
-# This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
+
 # 1024 voltage, 1025 current, 1026 line_cb
 MODBUS_DATA_ADDRESS = 1024
+# This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
 LOCATION_LINE_CB = MODBUS_DATA_ADDRESS + 2
 FUNC_NUM = 3  # Function number for holding registers
 
@@ -87,21 +88,21 @@ def monitor_modbus(context):
         current_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
         # Compare the value of the line_cb, if it changed, write the changes to the DB
         if current_value != prev_value:
-            print("Line_cb value changed!")
-            write_breaker_to_db(current_value)
-            print(f"Line_cb value updated from {prev_value} to {current_value}")
+            print("[REG Sync] Line_cb_0 value changed!")
+            write_reg_to_db(current_value)
+            print(f"[REG Sync] Line_cb_0 DB value updated from {prev_value} to {current_value}")
             prev_value = current_value
 
-# Carry out the update to the DB
-def write_breaker_to_db(value):
+# Carry out the update from reg to the DB
+def write_reg_to_db(value):
     conn = establish_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE line_cb SET value = %s WHERE name = 'line_cb_0'", (value,))
     cursor.execute("SELECT value FROM line_cb WHERE name = 'line_cb_0'")
-    breaker = int(cursor.fetchone()[0])
+    reg = int(cursor.fetchone()[0])
     conn.commit()
     conn.close()
-    print(f"[DB] Breaker updated to: {breaker}")
+    print(f"[DB] Breaker updated to: {reg}")
 
 # Hardcoded update to the line_cb to simulate a possible change in value in the IED every 3 seconds
 def hardcode_update(context):
@@ -134,8 +135,14 @@ def poll_database_and_update(context):
 
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
+    other_blocks = ModbusSequentialDataBlock(0, [0]*100)
     block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS, [0]*1100)
-    store = ModbusSlaveContext(hr=block)
+    store = ModbusSlaveContext(
+        di=other_blocks,
+        co=other_blocks,
+        hr=block,
+        ir=other_blocks
+        )
     for i in range(3):
         store.setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [register_values[i]])
 
@@ -154,7 +161,7 @@ def start_server_and_monitor(register_values):
     # Hardcoded changes to line_cb of the server context as the server is running, 
     # to simulate changes like PLC instructing IED to close the circuit breaker.
     #threading.Thread(target=hardcode_update, args=(context,), daemon=True).start()
-    val = context[0].getValues(3, MODBUS_DATA_ADDRESS, count=3)
+    val = context[0].getValues(FUNC_NUM, MODBUS_DATA_ADDRESS, count=3)
     print(f"this is the values of context at {MODBUS_DATA_ADDRESS}:{val}")
     # Start server
     StartTcpServer(
