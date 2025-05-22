@@ -63,7 +63,7 @@ def launch_ui():
 
     def refresh_table():
         update_table(table_var.get())
-        root.after(10, refresh_table)  
+        root.after(400, refresh_table)  
 
     dropdown = ttk.OptionMenu(root, table_var, table_names[0], *table_names, command=update_table)
     dropdown.pack(pady=10)
@@ -72,7 +72,7 @@ def launch_ui():
     refresh_btn.pack(pady=5)
 
     update_table(table_var.get())
-    root.after(10, refresh_table)
+    root.after(400, refresh_table)
 
     root.mainloop()
 
