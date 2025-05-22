@@ -4,10 +4,6 @@ PROGRAM ied_read
     current_0 AT %MW1 : INT;
     line_cb_0 AT %MW2 : INT;
   END_VAR
-  VAR
-    test : BOOL := false;
-    Tripvalue : INT := 1000;
-  END_VAR
 
   line_cb_0 := 1;
 
