@@ -20,13 +20,12 @@ from pymodbus.datastore import (
 # If a change is detected, it updates the database to its new value.
 
 
-
 # 1024 voltage, 1025 current, 1026 line_cb
-MODBUS_DATA_ADDRESS = 1024
+MODBUS_DATA_ADDRESS = 100
 # This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
 LOCATION_LINE_CB = MODBUS_DATA_ADDRESS + 2
 FUNC_NUM = 3  # Function number for holding registers
-
+NUM_REGISTERS_FOR_READING = 3
 
 def establish_connection():
     conn = mysql.connector.connect(
@@ -79,12 +78,12 @@ def monitor_modbus(context):
             prev_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
             break  # Exit loop once successful
         except IndexError:
-            print("Waiting for holding register 102 to be ready...")
+            print(f"Waiting for holding register {LOCATION_LINE_CB} to be ready...")
             time.sleep(1)
 
     while True:
         print(f"Monitoring for any changes to line_cb_0 : {prev_value}")
-        time.sleep(1)
+        time.sleep(0.5)
         current_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
         # Compare the value of the line_cb, if it changed, write the changes to the DB
         if current_value != prev_value:
@@ -98,9 +97,10 @@ def write_reg_to_db(value):
     conn = establish_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE line_cb SET value = %s WHERE name = 'line_cb_0'", (value,))
+    conn.commit()
     cursor.execute("SELECT value FROM line_cb WHERE name = 'line_cb_0'")
     reg = int(cursor.fetchone()[0])
-    conn.commit()
+ 
     conn.close()
     print(f"[DB] Breaker updated to: {reg}")
 
@@ -117,13 +117,13 @@ def poll_database_and_update(context):
     prev_values = [None, None, None]  # bus_voltage, current, line_cb
 
     while True:
-        time.sleep(1)  # check every 1 second
+        time.sleep(0.5)  # check every 1 second
         try:
             conn = establish_connection()
             new_values = fetch_ied_data(conn)
             conn.close()
 
-            for i in range(3):
+            for i in range(NUM_REGISTERS_FOR_READING):
                 if new_values[i] != prev_values[i]:
                     context[0].setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [new_values[i]])
                     print(f"[DB Sync] Updated Modbus reg {MODBUS_DATA_ADDRESS + i} with new value: {new_values[i]}")
@@ -135,15 +135,9 @@ def poll_database_and_update(context):
 
 def start_server_and_monitor(register_values):
     print("|| Starting server for PLC to request for data ||")
-    other_blocks = ModbusSequentialDataBlock(0, [0]*100)
     block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS, [0]*1100)
-    store = ModbusSlaveContext(
-        di=other_blocks,
-        co=other_blocks,
-        hr=block,
-        ir=other_blocks
-        )
-    for i in range(3):
+    store = ModbusSlaveContext(hr=block)
+    for i in range(NUM_REGISTERS_FOR_READING):
         store.setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [register_values[i]])
 
     # The single is set to True for now because we only have one IED
@@ -167,7 +161,7 @@ def start_server_and_monitor(register_values):
     StartTcpServer(
         context=context,
         identity=identity,
-        address=("0.0.0.0", 5020),
+        address=("0.0.0.0", 502),
     )
 
 def main():

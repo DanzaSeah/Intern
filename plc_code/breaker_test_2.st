@@ -1,8 +1,8 @@
 PROGRAM read
   VAR
-    a AT %MW0 : INT;
-    b AT %MW1 : INT;
-    c AT %MW2 : INT;
+    a AT %QW100 : INT;
+    b AT %QW101 : INT;
+    c AT %QW102 : INT;
   END_VAR
   VAR
     test : BOOL := false;
