@@ -71,7 +71,7 @@ def monitor_modbus(context):
             time.sleep(1)
 
     while True:
-        print(f"Monitoring for any changes to line_cb_0 : {prev_value}")
+        #print(f"Monitoring for any changes to line_cb_0 : {prev_value}")
         time.sleep(0.5)
         current_value = context[0].getValues(FUNC_NUM_HOLDING_REG, LOCATION_LINE_CB, count=1)[0]
         if current_value != prev_value:
