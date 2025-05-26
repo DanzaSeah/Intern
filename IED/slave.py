@@ -14,17 +14,17 @@ from pymodbus.datastore import (
 # It first starts a TCP server for the "PLC" Modbus Master to request data from and to send to. 
 # Concurrently, the IED monitors for any changes to the line_cb after being evaluated through sequence 
 # of logic and then receiving instruction by the PLC.
-# However this script has not integrated connection with OpenPLC, it only starts a Modbus server 
-# without any modbus traffic occuring, it only simulates the traffic by changing the value of line_cb 
-# in the modbus context every 3 seconds randomly
-# If a change is detected, it updates the database to its new value.
+# The server can be connected to in OpenPLC using %IW100, %IW101 and %QW100 in ST 
+# Slave device configurations:
+# Port 5020
+# Holding register - read (Start address: 0, Size: 2)
+# Holding register - write (Start address: 2, Size: 1)
 
 
-# 1024 voltage, 1025 current, 1026 line_cb
-MODBUS_DATA_ADDRESS = 100
-# This is location of the line_cb, assuming this is the variable we want to monitor for changes and make changes to the DB
+# 0 voltage, 1 current, 2 line_cb
+MODBUS_DATA_ADDRESS = 0
 LOCATION_LINE_CB = MODBUS_DATA_ADDRESS + 2
-FUNC_NUM = 3  # Function number for holding registers
+FUNC_NUM_HOLDING_REG = 3  
 NUM_REGISTERS_FOR_READING = 3
 
 def establish_connection():
@@ -37,17 +37,6 @@ def establish_connection():
     )
     return conn
 
-# def debug_show_tables(conn):
-#     cursor = conn.cursor()
-#     cursor.execute("SHOW TABLES;")
-#     for row in cursor.fetchall():
-#         print(row)
-
-# def debug_show_values(conn):
-#     cursor = conn.cursor()
-#     cursor.execute("SELECT * from bus_voltage ORDER BY value;")
-#     for row in cursor.fetchall():
-#         print(row)
 
 def fetch_ied_data(conn):
     cursor = conn.cursor()
@@ -71,11 +60,11 @@ def create_identity():
     identity.ModelName = "IED-MODBUS"
     return identity
 
-# To monitor any changes in line_cb and make the update back to the DB
+# To monitor any changes in line_cb and if it changed, write the changes to the DB
 def monitor_modbus(context):
     while True:
         try:
-            prev_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
+            prev_value = context[0].getValues(FUNC_NUM_HOLDING_REG, LOCATION_LINE_CB, count=1)[0]
             break  # Exit loop once successful
         except IndexError:
             print(f"Waiting for holding register {LOCATION_LINE_CB} to be ready...")
@@ -84,13 +73,13 @@ def monitor_modbus(context):
     while True:
         print(f"Monitoring for any changes to line_cb_0 : {prev_value}")
         time.sleep(0.5)
-        current_value = context[0].getValues(FUNC_NUM, LOCATION_LINE_CB, count=1)[0]
-        # Compare the value of the line_cb, if it changed, write the changes to the DB
+        current_value = context[0].getValues(FUNC_NUM_HOLDING_REG, LOCATION_LINE_CB, count=1)[0]
         if current_value != prev_value:
             print("[REG Sync] Line_cb_0 value changed!")
             write_reg_to_db(current_value)
             print(f"[REG Sync] Line_cb_0 DB value updated from {prev_value} to {current_value}")
             prev_value = current_value
+
 
 # Carry out the update from reg to the DB
 def write_reg_to_db(value):
@@ -104,13 +93,6 @@ def write_reg_to_db(value):
     conn.close()
     print(f"[DB] Breaker updated to: {reg}")
 
-# Hardcoded update to the line_cb to simulate a possible change in value in the IED every 3 seconds
-def hardcode_update(context):
-    while True:
-        time.sleep(3)
-        new_value = random.randint(0, 1)
-        print(f"[Simulated PLC instr] Forcing breaker value to {new_value}")
-        context[0].setValues(FUNC_NUM, LOCATION_LINE_CB, [new_value])
 
 # Checks the database every second if there are any values changed, if there is, update the server.
 def poll_database_and_update(context):
@@ -125,7 +107,7 @@ def poll_database_and_update(context):
 
             for i in range(NUM_REGISTERS_FOR_READING):
                 if new_values[i] != prev_values[i]:
-                    context[0].setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [new_values[i]])
+                    context[0].setValues(FUNC_NUM_HOLDING_REG, MODBUS_DATA_ADDRESS + i, [new_values[i]])
                     print(f"[DB Sync] Updated Modbus reg {MODBUS_DATA_ADDRESS + i} with new value: {new_values[i]}")
                     prev_values[i] = new_values[i]
 
@@ -138,7 +120,7 @@ def start_server_and_monitor(register_values):
     block = ModbusSequentialDataBlock(MODBUS_DATA_ADDRESS, [0]*1100)
     store = ModbusSlaveContext(hr=block)
     for i in range(NUM_REGISTERS_FOR_READING):
-        store.setValues(FUNC_NUM, MODBUS_DATA_ADDRESS + i, [register_values[i]])
+        store.setValues(FUNC_NUM_HOLDING_REG, MODBUS_DATA_ADDRESS + i, [register_values[i]])
 
     # The single is set to True for now because we only have one IED
     context = ModbusServerContext(slaves=store, single=True)
@@ -152,16 +134,13 @@ def start_server_and_monitor(register_values):
     threading.Thread(target=poll_database_and_update, args=(context,), daemon=True).start()
     threading.Thread(target=monitor_modbus, args=(context,), daemon=True).start()
 
-    # Hardcoded changes to line_cb of the server context as the server is running, 
-    # to simulate changes like PLC instructing IED to close the circuit breaker.
-    #threading.Thread(target=hardcode_update, args=(context,), daemon=True).start()
-    val = context[0].getValues(FUNC_NUM, MODBUS_DATA_ADDRESS, count=3)
+    val = context[0].getValues(FUNC_NUM_HOLDING_REG, MODBUS_DATA_ADDRESS, count=3)
     print(f"this is the values of context at {MODBUS_DATA_ADDRESS}:{val}")
     # Start server
     StartTcpServer(
         context=context,
         identity=identity,
-        address=("0.0.0.0", 502),
+        address=("0.0.0.0", 5020),
     )
 
 def main():
