@@ -9,7 +9,7 @@ PROGRAM ied_read
     Tripvalue : INT := 1000;
   END_VAR
 
-  IF TRUE THEN
+  IF bus_voltage_0 < 1000 THEN
     line_cb_0 := 1 - line_cb_0;
   END_IF;
 
