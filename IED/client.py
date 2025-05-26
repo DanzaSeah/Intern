@@ -2,7 +2,7 @@ import time
 from pymodbus.client import ModbusTcpClient
 #Supposed to be 0.890, but using 1 to test since bus_voltage_0 is 0.993865 which is more than 0.890 and won't trigger undervoltage
 TRIP_VALUE = 1
-START_ADDR = 100
+START_ADDR = 0
 
 def fetch_register_values(client):
     count = 3
@@ -45,7 +45,7 @@ def do_pla_logic(client, register_values, timer_counter, ls_timer_started, last_
         
 def establish_connection():
     address = '127.0.0.1'
-    port_num = 502
+    port_num = 5020
     client = ModbusTcpClient(address, port=port_num)
     client.connect()
     return client
