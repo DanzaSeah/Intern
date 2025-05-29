@@ -1,4 +1,4 @@
-if (ip.dst == '192.168.192.143' && tcp.dst == 5020) {
+if (ip.dst == '192.168.192.143' && tcp.dst == 502) {
 
 	# Test for Write Multiple registers 0x10 Message. 
     if (DATA.data + 7 == "\x10"){
