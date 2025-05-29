@@ -45,7 +45,7 @@ def do_pla_logic(client, register_values, timer_counter, ls_timer_started, last_
         
 def establish_connection():
     address = '127.0.0.1'
-    port_num = 5020
+    port_num = 502
     client = ModbusTcpClient(address, port=port_num)
     client.connect()
     return client

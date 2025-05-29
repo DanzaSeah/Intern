@@ -140,7 +140,7 @@ def start_server_and_monitor(register_values):
     StartTcpServer(
         context=context,
         identity=identity,
-        address=("0.0.0.0", 5020),
+        address=("0.0.0.0", 502),
     )
 
 def main():
